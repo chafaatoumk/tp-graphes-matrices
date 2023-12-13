@@ -1,46 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
-</head>
+  </head>
 
-<body>
-
+  <body>
     <script>
+      var width = 700,
+        height = 580;
 
-        // Chargement des données
-        d3.csv("liens.csv").then(function (edgesData) {
-            d3.csv("noeuds.csv").then(function (nodesData) {
-                // Vous pouvez maintenant utiliser linksData et nodesData pour créer la matrice d'adjacence
-                createAdjacencyMatrix(nodesData, edgesData);
+      var tooltip = d3
+        .select("body")
+        .append("div")
+        .attr("class", "hidden tooltip");
+
+      var svg = d3
+        .select("body")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+      var color = d3
+        .scaleQuantize()
+        .range(["#edf8e9", "#bae4b3", "#74c476", "#31a354", "#006d2c"]);
+
+      // Chargement des données
+      d3.csv("liens.csv").then(function (edgesData) {
+        // Set input domain for color scale
+        color.domain([
+          0,
+          d3.max(edgesData, function (d) {
+            return +d.sharedfollowers;
+          })
+        ]);
+
+        d3.csv("noeuds.csv").then(function (nodesData) {
+          // Vous pouvez maintenant utiliser linksData et nodesData pour créer la matrice d'adjacence
+          var adjacencyMatrix = createAdjacencyMatrix(nodesData, edgesData);
+
+          var cellSize = 25;
+          var matriceElt = svg
+            .append("g")
+            .attr("transform", "translate(50,50)")
+            .attr("id", "adjacencyMatrix");
+
+          var guides = svg
+            .append("g")
+            .attr("transform", "translate(50,50)")
+            .attr("id", "guides");
+
+          matriceElt
+            .selectAll("rect")
+            .data(adjacencyMatrix)
+            .enter()
+            .append("rect")
+            .attr("x", function (d) {
+              return d.x * 30;
+            })
+            .attr("y", function (d) {
+              return d.y * 30;
+            })
+            .attr("width", cellSize)
+            .attr("height", cellSize)
+            .style("fill", function (d) {
+              return color(d.sharedfollowers);
             });
+
+          // On définit la taille de notre axe,
+          // 25 correspond à la taille en pixel d'une cellule de notre matrice
+          // nodes.length correspond au nombre de lignes et de colonnes
+          var scaleSize = nodesData.length * (cellSize + 5);
+
+          var x = d3
+            .scaleBand()
+            .domain(
+              nodesData.map(function (el) {
+                return el.id;
+              })
+            )
+            .range([0, scaleSize]);
+
+          var y = d3
+            .scaleBand()
+            .domain(
+              nodesData
+                .map(function (el) {
+                  return el.id;
+                })
+                .reverse()
+            )
+            .range([scaleSize, 0]);
+
+          // Ajout de l'axe X
+          d3.select("#adjacencyMatrix")
+            .append("g")
+            .attr("transform", "translate(0," + scaleSize + ")")
+            .call(d3.axisBottom(x))
+            .selectAll("text")
+            .style("text-anchor", "end")
+            .attr("dx", "-.8em")
+            .attr("dy", ".15em")
+            .attr("transform", "rotate(-45)");
+
+          // Ajout de l'axe Y
+          d3.select("#adjacencyMatrix").append("g").call(d3.axisLeft(y));
         });
+      });
 
-        function createAdjacencyMatrix(nodes, edges) {
-            var edgeHash = {};
-            for (x in edges) {
-                var id = edges[x].source + "-" + edges[x].target;
-                edgeHash[id] = edges[x];
-            }
-            matrix = [];
-            //create all possible edges
-            for (const [a, node_a] of nodes.entries()) {
-                for (const [b, node_b] of nodes.entries()) {
-                    var grid = { id: node_a.id + "-" + node_b.id, x: a, y: b, sharedfollowers: 0 };
-                    if (edgeHash[grid.id]) {
-                        grid.sharedfollowers = parseInt(edgeHash[grid.id].sharedfollowers);
-                    }
-                    matrix.push(grid);
-                }
-            }
-            return matrix;
+      function createAdjacencyMatrix(nodes, edges) {
+        var edgeHash = {};
+        for (x in edges) {
+          var id = edges[x].source + "-" + edges[x].target;
+          edgeHash[id] = edges[x];
         }
-
-
+        matrix = [];
+        // create all possible edges
+        for (const [a, node_a] of nodes.entries()) {
+          for (const [b, node_b] of nodes.entries()) {
+            var grid = {
+              id: node_a.id + "-" + node_b.id,
+              x: a,
+              y: b,
+              sharedfollowers: 0
+            };
+            if (edgeHash[grid.id]) {
+              grid.sharedfollowers = parseInt(
+                edgeHash[grid.id].sharedfollowers
+              );
+            }
+            matrix.push(grid);
+          }
+        }
+        return matrix;
+      }
     </script>
-
-</body>
-
+  </body>
 </html>
